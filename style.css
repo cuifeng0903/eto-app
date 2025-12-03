@@ -1,0 +1,113 @@
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Hiragino Maru Gothic Pro', 'Rounded Mplus 1c', sans-serif;
+    background: linear-gradient(to bottom, #ffefba, #ffffff);
+    color: #333;
+    text-align: center;
+    min-height: 100vh;
+    padding: 20px;
+    font-size: 5.5vw;
+}
+
+h1 { font-size: 9vw; color: #e74c3c; margin-bottom: 30px; }
+h2 { font-size: 7vw; color: #27ae60; margin: 20px 0; }
+
+button, select {
+    background: #90ee90;
+    border: none;
+    border-radius: 20px;
+    padding: 20px;
+    margin: 15px;
+    font-size: 6.5vw;
+    width: 85%;
+    max-width: 350px;
+    box-shadow: 0 6px #68a868;
+}
+button:active { transform: translateY(4px); box-shadow: 0 2px #68a868; }
+
+.hidden { display: none; }
+
+/* 学習モード */
+#learn-image {
+    width: 85vw;
+    height: 55vh;
+    max-width: 500px;
+    max-height: 500px;
+    margin: 20px auto;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 8px solid #ffd700;
+    border-radius: 30px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+#progress {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+.progress-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    opacity: 0.4;
+    border: 3px solid #ccc;
+    background-size: cover;
+}
+.current { opacity: 1; border: 5px solid #e74c3c; transform: scale(1.2); }
+
+/* 確認モード：横スクロール */
+.scroll-container {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 0;
+    margin: 10px 0;
+    scrollbar-width: none;
+}
+.scroll-container::-webkit-scrollbar { display: none; }
+
+#quiz-slots, #quiz-options {
+    display: inline-flex;
+    gap: 20px;
+    padding: 0 20px;
+}
+
+.slot, .option {
+    width: 90px;
+    height: 90px;
+    flex-shrink: 0;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border-radius: 20px;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.slot {
+    border: 6px dashed #bdc3c7;
+}
+
+.slot.filled {
+    border: 6px solid #2ecc71;
+}
+
+.option {
+    border: 6px solid #3498db;
+    cursor: grab;
+}
+.option:active { cursor: grabbing; transform: scale(0.95); }
+
+#feedback {
+    font-size: 9vw;
+    font-weight: bold;
+    margin: 30px 0;
+    min-height: 80px;
+}
+
+/* 横画面対応 */
+@media (orientation: landscape) {
+    body { font-size: 4vw; }
+    #learn-image { height: 60vh; }
+}
