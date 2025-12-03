@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>えとを おぼえよう！</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="images/icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+</head>
+<body>
+    <!-- ホーム画面 -->
+    <div id="home-screen">
+        <h1>えとを おぼえよう！</h1>
+        <button id="learn-btn">まなぶモード</button>
+        <button id="quiz-btn">かくにんモード</button>
+        <select id="difficulty">
+            <option value="1">かんたん (3つ)</option>
+            <option value="2">ふつう (6つ)</option>
+            <option value="3">むずかしい (9つ)</option>
+            <option value="4">ぜんぶ (12つ)</option>
+        </select>
+    </div>
+
+    <!-- 学習モード -->
+    <div id="learn-screen" class="hidden">
+        <div id="learn-image"></div>
+        <div class="buttons">
+            <button id="prev-btn">まえ</button>
+            <button id="speak-btn">よむ</button>
+            <button id="next-btn">つぎ</button>
+        </div>
+        <div id="progress"></div>
+        <button id="back-home">ホームにもどる</button>
+    </div>
+
+    <!-- 確認モード（横スクロール対応） -->
+    <div id="quiz-screen" class="hidden">
+        <h2>すきな ばしょに えとを いれてね！</h2>
+        
+        <div class="scroll-container">
+            <div id="quiz-slots"></div>
+        </div>
+        
+        <div class="scroll-container">
+            <div id="quiz-options"></div>
+        </div>
+
+        <div id="feedback"></div>
+        <button id="retry-btn">もういちど</button>
+        <button id="back-home-quiz">ホームにもどる</button>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+</html>
