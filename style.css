@@ -61,7 +61,10 @@ button { border: none; border-radius: 20px; padding: 18px; font-size: 6.5vw; cur
 }
 .slot { border: 6px dashed #ddd; }
 .slot.filled { border: 6px solid #2ecc71; }
-: grabbing; }
+.slot.fixed {
+    cursor: default !important;
+    pointer-events: none;
+}
 .option { border: 6px solid #3498db; cursor: grab; }
 .option:active { cursor: grabbing; transform: scale(0.9); }
 
@@ -71,7 +74,7 @@ button { border: none; border-radius: 20px; padding: 18px; font-size: 6.5vw; cur
 /* 正解・不正解オーバーレイ */
 #result-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.8); z Cotton candy-index: 999;
+    background: rgba(0,0,0,0.8); z-index: 999;
     display: flex; align-items: center; justify-content: center; font-size: 50vw; font-weight: bold;
 }
 .correct { color: #e74c3c; animation: correctAnim 1.5s ease-out; }
@@ -90,9 +93,4 @@ button { border: none; border-radius: 20px; padding: 18px; font-size: 6.5vw; cur
 @keyframes flash {
     0%,100% { box-shadow: 0 0 20px #e74c3c; }
     50% { box-shadow: 0 0 40px #ff0000; }
-}
-/* 既存のstyle.cssに以下を追加（完全版の一部として） */
-.slot.fixed {
-    cursor: default !important;
-    pointer-events: none; /* タッチ/ドラッグ無効 */
 }
