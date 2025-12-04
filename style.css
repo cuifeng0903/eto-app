@@ -91,3 +91,8 @@ button { border: none; border-radius: 20px; padding: 18px; font-size: 6.5vw; cur
     0%,100% { box-shadow: 0 0 20px #e74c3c; }
     50% { box-shadow: 0 0 40px #ff0000; }
 }
+/* 既存のstyle.cssに以下を追加（完全版の一部として） */
+.slot.fixed {
+    cursor: default !important;
+    pointer-events: none; /* タッチ/ドラッグ無効 */
+}
