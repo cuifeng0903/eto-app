@@ -9,9 +9,10 @@ const zodiac = [
 
 let current = 0;
 let difficulty = localStorage.getItem('lastDifficulty') || 1;
-let draggedElement = null;
-let startX, startY; // タッチ開始位置
-const dragThreshold = 10; // ドラッグ判定閾値（px）
+let draggedImage = null; // ドラッグ中の画像データ
+let draggedName = null;
+let startX, startY;
+const dragThreshold = 10;
 
 // 初期化
 document.getElementById('difficulty').value = difficulty;
@@ -70,7 +71,7 @@ const startChallenge = () => {
     slotsDiv.innerHTML = '';
     optionsDiv.innerHTML = '';
 
-    // スロット作成（固定位置はドラッグ不可）
+    // スロット作成（位置固定）
     zodiac.forEach((z, i) => {
         const slot = document.createElement('div');
         slot.className = 'slot';
@@ -80,21 +81,16 @@ const startChallenge = () => {
         const isFixed = !emptyIndices.includes(i);
         if (isFixed) {
             slot.style.backgroundImage = `url(${z.image})`;
-            slot.classList.add('filled', 'fixed'); // fixedクラス追加
+            slot.classList.add('filled', 'fixed');
         }
 
-        // ドロップイベント（全てのスロットに）
+        // ドロップイベント
         slot.addEventListener('dragover', e => e.preventDefault());
-        slot.addEventListener('drop', e => handleDrop(e, slot));
+        slot.addEventListener('drop', handleDrop);
 
-        // ドラッグイベント（fixed以外のみ）
+        // ドラッグイベント（fixed以外のみ、画像データのみドラッグ）
         if (!isFixed) {
-            slot.addEventListener('dragstart', e => {
-                if (slot.classList.contains('filled')) {
-                    draggedElement = slot;
-                    e.dataTransfer.setData('text/plain', '');
-                }
-            });
+            slot.addEventListener('dragstart', handleDragStart);
             slot.addEventListener('touchstart', handleTouchStart);
         }
 
@@ -115,23 +111,60 @@ const createOption = (z) => {
     opt.style.backgroundImage = `url(${z.image})`;
     opt.dataset.name = z.name;
 
-    opt.addEventListener('dragstart', e => {
-        draggedElement = opt;
-        e.dataTransfer.setData('text/plain', '');
-    });
+    opt.addEventListener('dragstart', handleDragStart);
     opt.addEventListener('touchstart', handleTouchStart);
 
     document.getElementById('challenge-options').appendChild(opt);
 };
 
+// ドラッグ開始（PC）
+const handleDragStart = e => {
+    const elem = e.target;
+    if (elem.classList.contains('fixed') || !elem.style.backgroundImage) return;
+
+    draggedImage = elem.style.backgroundImage;
+    draggedName = elem.dataset.name;
+
+    // 移動元を即クリア（スロットの場合）
+    if (elem.classList.contains('slot')) {
+        elem.style.backgroundImage = '';
+        elem.classList.remove('filled');
+        elem.dataset.name = '';
+    } else {
+        // オプションの場合、要素削除
+        setTimeout(() => elem.remove(), 0);
+    }
+
+    e.dataTransfer.setData('text/plain', ''); // 必須
+};
+
 // タッチ開始
 const handleTouchStart = e => {
     const elem = e.target.closest('.slot:not(.fixed), .option');
-    if (!elem) return;
+    if (!elem || elem.classList.contains('fixed') || !elem.style.backgroundImage) return;
 
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
-    draggedElement = elem;
+
+    draggedImage = elem.style.backgroundImage;
+    draggedName = elem.dataset.name;
+
+    // 移動元を即クリア
+    if (elem.classList.contains('slot')) {
+        elem.style.backgroundImage = '';
+        elem.classList.remove('filled');
+        elem.dataset.name = '';
+    } else {
+        elem.remove();
+    }
+
+    // クローンを作成してドラッグ表示
+    const clone = elem.cloneNode(true);
+    clone.style.position = 'fixed';
+    clone.style.zIndex = 1000;
+    clone.style.pointerEvents = 'none';
+    document.body.appendChild(clone);
+    draggedElement = clone; // 一時クローン
 
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
@@ -139,20 +172,13 @@ const handleTouchStart = e => {
 
 // タッチ移動
 const handleTouchMove = e => {
+    e.preventDefault(); // スクロール停止
     if (!draggedElement) return;
 
     const touch = e.touches[0];
-    const dx = touch.clientX - startX;
-    const dy = touch.clientY - startY;
-
-    if (Math.hypot(dx, dy) > dragThreshold) {
-        e.preventDefault();
-        draggedElement.style.position = 'fixed';
-        draggedElement.style.left = (touch.clientX - 45) + 'px';
-        draggedElement.style.top = (touch.clientY - 45) + 'px';
-        draggedElement.style.zIndex = 1000;
-        draggedElement.style.transform = 'scale(1.3)';
-    }
+    draggedElement.style.left = (touch.clientX - 45) + 'px';
+    draggedElement.style.top = (touch.clientY - 45) + 'px';
+    draggedElement.style.transform = 'scale(1.3)';
 };
 
 // タッチ終了
@@ -160,70 +186,65 @@ const handleTouchEnd = e => {
     if (!draggedElement) return;
 
     const touch = e.changedTouches[0];
-    let closestSlot = null;
-    let minDistance = Infinity;
+    let targetSlot = document.elementFromPoint(touch.clientX, touch.clientY);
+    targetSlot = targetSlot ? targetSlot.closest('.slot:not(.fixed)') : null;
 
-    const rect = draggedElement.getBoundingClientRect();
-    const dragX = rect.left + rect.width / 2;
-    const dragY = rect.top + rect.height / 2;
-
-    document.querySelectorAll('#challenge-slots .slot:not(.fixed)').forEach(slot => { // fixed除外
-        const sRect = slot.getBoundingClientRect();
-        const dist = Math.hypot(dragX - (sRect.left + sRect.width / 2), dragY - (sRect.top + sRect.height / 2));
-        if (dist < minDistance && dist < 200) {
-            minDistance = dist;
-            closestSlot = slot;
+    if (targetSlot) {
+        // ドロップ処理
+        if (targetSlot.classList.contains('filled')) {
+            const oldImg = targetSlot.style.backgroundImage;
+            const oldName = targetSlot.dataset.name;
+            if (oldImg && oldName) {
+                createOption({ name: oldName, image: oldImg.slice(5, -2) });
+            }
         }
-    });
-
-    if (closestSlot) {
-        handleDrop(null, closestSlot);
+        targetSlot.style.backgroundImage = draggedImage;
+        targetSlot.classList.add('filled');
+        targetSlot.dataset.name = draggedName;
+    } else {
+        // 失敗時は元に戻す（選択肢へ）
+        createOption({ name: draggedName, image: draggedImage.slice(5, -2) });
     }
 
-    // リセット
-    draggedElement.style.position = '';
-    draggedElement.style.left = '';
-    draggedElement.style.top = '';
-    draggedElement.style.zIndex = '';
-    draggedElement.style.transform = '';
+    // クローン削除
+    draggedElement.remove();
     draggedElement = null;
+    draggedImage = null;
+    draggedName = null;
 
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
 };
 
-// ドロップ処理（置き換え強化）
-const handleDrop = (e, slot) => {
-    if (e) e.preventDefault();
-    if (!draggedElement || slot.classList.contains('fixed')) return;
+// ドロップ処理（PC）
+const handleDrop = e => {
+    e.preventDefault();
+    if (!draggedImage) return;
 
-    const draggedImg = draggedElement.style.backgroundImage;
-    const draggedName = draggedElement.dataset.name;
+    const slot = e.target.closest('.slot:not(.fixed)');
+    if (!slot) {
+        // 失敗時は選択肢に戻す
+        createOption({ name: draggedName, image: draggedImage.slice(5, -2) });
+        draggedImage = null;
+        draggedName = null;
+        return;
+    }
 
-    // 置き換え: 既にfilledなら元の画像を選択肢に戻す
+    // 置き換え
     if (slot.classList.contains('filled')) {
         const oldImg = slot.style.backgroundImage;
-        const oldName = zodiac.find(z => `url("${z.image}")` === oldImg)?.name;
+        const oldName = slot.dataset.name;
         if (oldImg && oldName) {
             createOption({ name: oldName, image: oldImg.slice(5, -2) });
         }
     }
 
-    // 新しい画像を配置
-    slot.style.backgroundImage = draggedImg;
+    slot.style.backgroundImage = draggedImage;
     slot.classList.add('filled');
     slot.dataset.name = draggedName;
 
-    // 移動元クリア
-    if (draggedElement.classList.contains('option')) {
-        draggedElement.remove();
-    } else if (draggedElement.classList.contains('slot')) {
-        draggedElement.style.backgroundImage = '';
-        draggedElement.classList.remove('filled');
-        draggedElement.dataset.name = '';
-    }
-
-    draggedElement = null;
+    draggedImage = null;
+    draggedName = null;
 };
 
 // 一括判定（変更なし）
