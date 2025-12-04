@@ -9,7 +9,9 @@ const zodiac = [
 
 let current = 0;
 let difficulty = localStorage.getItem('lastDifficulty') || 1;
-let draggedImage = null; // ドラッグ中の画像データ
+let draggedElement = null; // 現在ドラッグ中のクローン
+let sourceElement = null;  // 元の要素（スロット or オプション）
+let draggedImage = null;
 let draggedName = null;
 let startX, startY;
 const dragThreshold = 10;
@@ -71,7 +73,6 @@ const startChallenge = () => {
     slotsDiv.innerHTML = '';
     optionsDiv.innerHTML = '';
 
-    // スロット作成（位置固定）
     zodiac.forEach((z, i) => {
         const slot = document.createElement('div');
         slot.className = 'slot';
@@ -84,11 +85,9 @@ const startChallenge = () => {
             slot.classList.add('filled', 'fixed');
         }
 
-        // ドロップイベント
         slot.addEventListener('dragover', e => e.preventDefault());
         slot.addEventListener('drop', handleDrop);
 
-        // ドラッグイベント（fixed以外のみ、画像データのみドラッグ）
         if (!isFixed) {
             slot.addEventListener('dragstart', handleDragStart);
             slot.addEventListener('touchstart', handleTouchStart);
@@ -97,13 +96,11 @@ const startChallenge = () => {
         slotsDiv.appendChild(slot);
     });
 
-    // 選択肢作成
     [...emptyIndices].sort(()=>Math.random()-0.5).forEach(i => {
         createOption(zodiac[i]);
     });
 };
 
-// 選択肢作成
 const createOption = (z) => {
     const opt = document.createElement('div');
     opt.className = 'option';
@@ -122,119 +119,92 @@ const handleDragStart = e => {
     const elem = e.target;
     if (elem.classList.contains('fixed') || !elem.style.backgroundImage) return;
 
+    sourceElement = elem;
     draggedImage = elem.style.backgroundImage;
     draggedName = elem.dataset.name;
 
-    // 移動元を即クリア（スロットの場合）
-    if (elem.classList.contains('slot')) {
-        elem.style.backgroundImage = '';
-        elem.classList.remove('filled');
-        elem.dataset.name = '';
-    } else {
-        // オプションの場合、要素削除
-        setTimeout(() => elem.remove(), 0);
-    }
-
-    e.dataTransfer.setData('text/plain', ''); // 必須
+    // 見た目は残す（クローンで移動）
+    e.dataTransfer.setData('text/plain', '');
 };
 
-// タッチ開始
+// タッチ開始（最も重要な修正）
 const handleTouchStart = e => {
     const elem = e.target.closest('.slot:not(.fixed), .option');
     if (!elem || elem.classList.contains('fixed') || !elem.style.backgroundImage) return;
 
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-
+    e.preventDefault();
+    sourceElement = elem;
     draggedImage = elem.style.backgroundImage;
     draggedName = elem.dataset.name;
 
-    // 移動元を即クリア
-    if (elem.classList.contains('slot')) {
-        elem.style.backgroundImage = '';
-        elem.classList.remove('filled');
-        elem.dataset.name = '';
-    } else {
-        elem.remove();
-    }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
 
-    // クローンを作成してドラッグ表示
-    const clone = elem.cloneNode(true);
-    clone.style.position = 'fixed';
-    clone.style.zIndex = 1000;
-    clone.style.pointerEvents = 'none';
-    document.body.appendChild(clone);
-    draggedElement = clone; // 一時クローン
+    // クローン作成（指の下に表示）
+    draggedElement = elem.cloneNode(true);
+    draggedElement.style.position = 'fixed';
+    draggedElement.style.zIndex = 1000;
+    draggedElement.style.pointerEvents = 'none';
+    draggedElement.style.opacity = '0.9';
+    draggedElement.style.transition = 'none';
+    document.body.appendChild(draggedElement);
 
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
 };
 
-// タッチ移動
 const handleTouchMove = e => {
-    e.preventDefault(); // スクロール停止
+    e.preventDefault();
     if (!draggedElement) return;
 
     const touch = e.touches[0];
-    draggedElement.style.left = (touch.clientX - 45) + 'px';
-    draggedElement.style.top = (touch.clientY - 45) + 'px';
-    draggedElement.style.transform = 'scale(1.3)';
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+
+    if (Math.hypot(dx, dy) > dragThreshold) {
+        draggedElement.style.left = (touch.clientX - 45) + 'px';
+        draggedElement.style.top = (touch.clientY - 45) + 'px';
+        draggedElement.style.transform = 'scale(1.3) rotate(5deg)';
+    }
 };
 
-// タッチ終了
 const handleTouchEnd = e => {
     if (!draggedElement) return;
 
     const touch = e.changedTouches[0];
-    let targetSlot = document.elementFromPoint(touch.clientX, touch.clientY);
-    targetSlot = targetSlot ? targetSlot.closest('.slot:not(.fixed)') : null;
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const targetSlot = target ? target.closest('.slot:not(.fixed)') : null;
 
     if (targetSlot) {
-        // ドロップ処理
-        if (targetSlot.classList.contains('filled')) {
-            const oldImg = targetSlot.style.backgroundImage;
-            const oldName = targetSlot.dataset.name;
-            if (oldImg && oldName) {
-                createOption({ name: oldName, image: oldImg.slice(5, -2) });
-            }
-        }
-        targetSlot.style.backgroundImage = draggedImage;
-        targetSlot.classList.add('filled');
-        targetSlot.dataset.name = draggedName;
+        performDrop(targetSlot);
     } else {
-        // 失敗時は元に戻す（選択肢へ）
-        createOption({ name: draggedName, image: draggedImage.slice(5, -2) });
+        // ドロップ失敗 → 元に戻す
+        cancelDrag();
     }
 
-    // クローン削除
-    draggedElement.remove();
-    draggedElement = null;
-    draggedImage = null;
-    draggedName = null;
-
-    document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleTouchEnd);
+    cleanupDrag();
 };
 
-// ドロップ処理（PC）
 const handleDrop = e => {
     e.preventDefault();
-    if (!draggedImage) return;
+    if (!sourceElement) return;
 
     const slot = e.target.closest('.slot:not(.fixed)');
-    if (!slot) {
-        // 失敗時は選択肢に戻す
-        createOption({ name: draggedName, image: draggedImage.slice(5, -2) });
-        draggedImage = null;
-        draggedName = null;
-        return;
+    if (slot) {
+        performDrop(slot);
+    } else {
+        cancelDrag();
     }
+    cleanupDrag();
+};
 
-    // 置き換え
+// ドロップ実行
+const performDrop = (slot) => {
+    // 置き換え処理
     if (slot.classList.contains('filled')) {
         const oldImg = slot.style.backgroundImage;
-        const oldName = slot.dataset.name;
-        if (oldImg && oldName) {
+        const oldName = slot.dataset.name || zodiac.find(z => `url("${z.image}")` === oldImg)?.name;
+        if (oldImg) {
             createOption({ name: oldName, image: oldImg.slice(5, -2) });
         }
     }
@@ -243,8 +213,32 @@ const handleDrop = e => {
     slot.classList.add('filled');
     slot.dataset.name = draggedName;
 
+    // 元の場所を空にする
+    if (sourceElement.classList.contains('option')) {
+        sourceElement.remove();
+    } else {
+        sourceElement.style.backgroundImage = '';
+        sourceElement.classList.remove('filled');
+        delete sourceElement.dataset.name;
+    }
+};
+
+// ドラッグキャンセル
+const cancelDrag = () => {
+    // 何もしない（元々あった場所に残る）
+};
+
+// ドラッグ終了処理
+const cleanupDrag = () => {
+    if (draggedElement) {
+        draggedElement.remove();
+        draggedElement = null;
+    }
+    sourceElement = null;
     draggedImage = null;
     draggedName = null;
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
 };
 
 // 一括判定（変更なし）
