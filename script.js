@@ -70,30 +70,33 @@ const startChallenge = () => {
     slotsDiv.innerHTML = '';
     optionsDiv.innerHTML = '';
 
-    // スロット作成
+    // スロット作成（固定位置はドラッグ不可）
     zodiac.forEach((z, i) => {
         const slot = document.createElement('div');
         slot.className = 'slot';
         slot.dataset.index = i;
         slot.dataset.correct = z.name;
 
-        if (!emptyIndices.includes(i)) {
+        const isFixed = !emptyIndices.includes(i);
+        if (isFixed) {
             slot.style.backgroundImage = `url(${z.image})`;
-            slot.classList.add('filled');
+            slot.classList.add('filled', 'fixed'); // fixedクラス追加
         }
 
-        // ドロップイベント
+        // ドロップイベント（全てのスロットに）
         slot.addEventListener('dragover', e => e.preventDefault());
         slot.addEventListener('drop', e => handleDrop(e, slot));
 
-        // 配置済みもドラッグ可能
-        slot.addEventListener('dragstart', e => {
-            if (slot.classList.contains('filled')) {
-                draggedElement = slot;
-                e.dataTransfer.setData('text/plain', '');
-            }
-        });
-        slot.addEventListener('touchstart', handleTouchStart);
+        // ドラッグイベント（fixed以外のみ）
+        if (!isFixed) {
+            slot.addEventListener('dragstart', e => {
+                if (slot.classList.contains('filled')) {
+                    draggedElement = slot;
+                    e.dataTransfer.setData('text/plain', '');
+                }
+            });
+            slot.addEventListener('touchstart', handleTouchStart);
+        }
 
         slotsDiv.appendChild(slot);
     });
@@ -121,9 +124,9 @@ const createOption = (z) => {
     document.getElementById('challenge-options').appendChild(opt);
 };
 
-// タッチ開始（スクロール両立）
+// タッチ開始
 const handleTouchStart = e => {
-    const elem = e.target.closest('.slot.filled, .option');
+    const elem = e.target.closest('.slot:not(.fixed), .option');
     if (!elem) return;
 
     startX = e.touches[0].clientX;
@@ -134,7 +137,7 @@ const handleTouchStart = e => {
     document.addEventListener('touchend', handleTouchEnd);
 };
 
-// タッチ移動（閾値でドラッグ判定）
+// タッチ移動
 const handleTouchMove = e => {
     if (!draggedElement) return;
 
@@ -143,7 +146,7 @@ const handleTouchMove = e => {
     const dy = touch.clientY - startY;
 
     if (Math.hypot(dx, dy) > dragThreshold) {
-        e.preventDefault(); // 閾値超えでスクロール停止、ドラッグ開始
+        e.preventDefault();
         draggedElement.style.position = 'fixed';
         draggedElement.style.left = (touch.clientX - 45) + 'px';
         draggedElement.style.top = (touch.clientY - 45) + 'px';
@@ -164,7 +167,7 @@ const handleTouchEnd = e => {
     const dragX = rect.left + rect.width / 2;
     const dragY = rect.top + rect.height / 2;
 
-    document.querySelectorAll('#challenge-slots .slot').forEach(slot => {
+    document.querySelectorAll('#challenge-slots .slot:not(.fixed)').forEach(slot => { // fixed除外
         const sRect = slot.getBoundingClientRect();
         const dist = Math.hypot(dragX - (sRect.left + sRect.width / 2), dragY - (sRect.top + sRect.height / 2));
         if (dist < minDistance && dist < 200) {
@@ -189,10 +192,10 @@ const handleTouchEnd = e => {
     document.removeEventListener('touchend', handleTouchEnd);
 };
 
-// ドロップ処理
+// ドロップ処理（置き換え強化）
 const handleDrop = (e, slot) => {
     if (e) e.preventDefault();
-    if (!draggedElement) return;
+    if (!draggedElement || slot.classList.contains('fixed')) return;
 
     const draggedImg = draggedElement.style.backgroundImage;
     const draggedName = draggedElement.dataset.name;
@@ -211,7 +214,7 @@ const handleDrop = (e, slot) => {
     slot.classList.add('filled');
     slot.dataset.name = draggedName;
 
-    // 移動元削除
+    // 移動元クリア
     if (draggedElement.classList.contains('option')) {
         draggedElement.remove();
     } else if (draggedElement.classList.contains('slot')) {
@@ -223,7 +226,7 @@ const handleDrop = (e, slot) => {
     draggedElement = null;
 };
 
-// 一括判定
+// 一括判定（変更なし）
 document.getElementById('check-btn').onclick = () => {
     const slots = document.querySelectorAll('#challenge-slots .slot');
     const wrongs = [];
