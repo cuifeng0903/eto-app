@@ -1,137 +1,202 @@
 const zodiac = [
-    { name: 'ね', image: 'images/001.png' },
-    { name: 'うし', image: 'images/002.png' },
-    { name: 'とら', image: 'images/003.png' },
-    { name: 'う', image: 'images/004.png' },
-    { name: 'たつ', image: 'images/005.png' },
-    { name: 'み', image: 'images/006.png' },
-    { name: 'うま', image: 'images/007.png' },
-    { name: 'ひつじ', image: 'images/008.png' },
-    { name: 'さる', image: 'images/009.png' },
-    { name: 'とり', image: 'images/010.png' },
-    { name: 'いぬ', image: 'images/011.png' },
-    { name: 'い', image: 'images/012.png' }
+    { name: 'ね', image: 'images/001.png' }, { name: 'うし', image: 'images/002.png' },
+    { name: 'とら', image: 'images/003.png' }, { name: 'う', image: 'images/004.png' },
+    { name: 'たつ', image: 'images/005.png' }, { name: 'み', image: 'images/006.png' },
+    { name: 'うま', image: 'images/007.png' }, { name: 'ひつじ', image: 'images/008.png' },
+    { name: 'さる', image: 'images/009.png' }, { name: 'とり', image: 'images/010.png' },
+    { name: 'いぬ', image: 'images/011.png' }, { name: 'い', image: 'images/012.png' }
 ];
 
-let currentIndex = 0;
-let difficulty = 1;
+let current = 0;
+let difficulty = localStorage.getItem('lastDifficulty') || 1;
 let emptySlots = [];
+let draggedElement = null;
 
-// 画面切り替え
-const showScreen = id => {
-    document.querySelectorAll('#home-screen, #learn-screen, #quiz-screen')
-        .forEach(el => el.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-};
+// 初期化
+document.getElementById('difficulty').value = difficulty;
 
-// 音声読み上げ
 const speak = text => {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'ja-JP';
     speechSynthesis.speak(utter);
 };
 
-// 学習モード
-const initLearnMode = () => {
-    currentIndex = 0;
-    showScreen('learn-screen');
-    updateLearnDisplay();
+const showScreen = id => {
+    document.querySelectorAll('#home-screen, #slide-screen, #challenge-screen')
+        .forEach(el => el.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
 };
 
-const updateLearnDisplay = () => {
-    document.getElementById('learn-image').style.backgroundImage = `url(${zodiac[currentIndex].image})`;
-    speak(zodiac[currentIndex].name);
-
-    const progress = document.getElementById('progress');
-    progress.innerHTML = '';
-    zodiac.forEach((z, i) => {
-        const icon = document.createElement('div');
-        icon.className = 'progress-icon';
-        icon.style.backgroundImage = `url(${z.image})`;
-        if (i === currentIndex) icon.classList.add('current');
-        progress.appendChild(icon);
-    });
+// スライドモード（自動再生）
+const startSlide = () => {
+    current = 0;
+    showScreen('slide-screen');
+    document.getElementById('restart-btn').classList.add('hidden');
+    updateSlide();
 };
 
-document.getElementById('prev-btn').onclick = () => {
-    currentIndex = (currentIndex - 1 + zodiac.length) % zodiac.length;
-    updateLearnDisplay();
-};
-document.getElementById('next-btn').onclick = () => {
-    currentIndex = (currentIndex + 1) % zodiac.length;
-    updateLearnDisplay();
-};
-document.getElementById('speak-btn').onclick = () => speak(zodiac[currentIndex].name);
+const updateSlide = () => {
+    const img = document.getElementById('slide-image');
+    img.style.backgroundImage = `url(${zodiac[current].image})`;
+    speak(zodiac[current].name);
 
-// 確認モード
-const initQuizMode = () => {
+    // 進捗
+    document.getElementById('progress').innerHTML = zodiac.map((z,i) => 
+        `<div class="progress-icon ${i===current?'current':''}" style="background-image:url(${z.image})"></div>`
+    ).join('');
+
+    current = (current + 1) % 12;
+    if (current === 0) {
+        setTimeout(() => document.getElementById('restart-btn').classList.remove('hidden'), 1500);
+    } else {
+        setTimeout(updateSlide, 700 + 800); // 音声時間＋0.7秒
+    }
+};
+
+document.getElementById('restart-btn').onclick = startSlide;
+
+// チャレンジモード
+const startChallenge = () => {
     difficulty = +document.getElementById('difficulty').value;
-    const emptyCount = difficulty === 4 ? 12 : difficulty * 3;
-    emptySlots = Array.from({length: 12}, (_,i) => i)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, emptyCount);
+    localStorage.setItem('lastDifficulty', difficulty);
+    const count = difficulty === 4 ? 12 : difficulty * 3;
+    emptySlots = Array.from({length:12},(_,i)=>i).sort(()=>Math.random()-0.5).slice(0,count);
 
-    showScreen('quiz-screen');
-    document.getElementById('feedback').textContent = '';
+    showScreen('challenge-screen');
+    document.getElementById('result-overlay').classList.add('hidden');
 
-    const slotsDiv = document.getElementById('quiz-slots');
+    const slotsDiv = document.getElementById('challenge-slots');
+    const optionsDiv = document.getElementById('challenge-options');
     slotsDiv.innerHTML = '';
+    optionsDiv.innerHTML = '';
+
     zodiac.forEach((z, i) => {
         const slot = document.createElement('div');
-        slot.classList.add('slot');
+        slot.className = 'slot';
         slot.dataset.index = i;
-        slot.dataset.correct = z.name;
-
         if (!emptySlots.includes(i)) {
             slot.style.backgroundImage = `url(${z.image})`;
             slot.classList.add('filled');
-        } else {
-            slot.addEventListener('dragover', e => e.preventDefault());
-            slot.addEventListener('drop', dropHandler);
         }
         slotsDiv.appendChild(slot);
     });
 
-    const optionsDiv = document.getElementById('quiz-options');
-    optionsDiv.innerHTML = '';
-    [...emptySlots].sort(() => Math.random() - 0.5).forEach(i => {
+    [...emptySlots].sort(()=>Math.random()-0.5).forEach(i => {
         const opt = document.createElement('div');
-        opt.classList.add('option');
+        opt.className = 'option';
         opt.draggable = true;
         opt.style.backgroundImage = `url(${zodiac[i].image})`;
         opt.dataset.name = zodiac[i].name;
-        opt.addEventListener('dragstart', e => e.dataTransfer.setData('name', zodiac[i].name));
+        opt.dataset.index = i;
+
+        opt.addEventListener('dragstart', e => {
+            draggedElement = opt;
+            e.dataTransfer.setData('text/plain', '');
+        });
+        opt.addEventListener('touchstart', e => {
+            e.preventDefault();
+            draggedElement = opt;
+            opt.style.position = 'fixed';
+            opt.style.zIndex = 1000;
+            opt.style.transform = 'scale(1.2)';
+            document.addEventListener('touchmove', touchMove);
+            document.addEventListener('touchend', touchEnd);
+        });
+
         optionsDiv.appendChild(opt);
     });
-
-    speak('すきな ばしょに えとを いれてね');
 };
 
-const dropHandler = e => {
-    e.preventDefault();
-    const name = e.dataTransfer.getData('name');
-    const slot = e.target;
-    if (name === slot.dataset.correct) {
-        slot.style.backgroundImage = `url(${zodiac.find(z => z.name === name).image})`;
-        slot.classList.add('filled');
-        e.target.closest('.option')?.remove();
-        speak('せいかい！');
-        checkComplete();
+const touchMove = e => {
+    if (!draggedElement) return;
+    const touch = e.touches[0];
+    draggedElement.style.left = (touch.clientX - 50) + 'px';
+    draggedElement.style.top = (touch.clientY - 50) + 'px';
+};
+
+const touchEnd = e => {
+    if (!draggedElement) return;
+    const touch = e.changedTouches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    dropOnTarget(target);
+    resetDragged();
+};
+
+const dropOnTarget = target => {
+    if (target && target.classList.contains('slot') && !target.classList.contains('filled')) {
+        const correctName = zodiac[target.dataset.index].name;
+        if (draggedElement.dataset.name === correctName) {
+            target.style.backgroundImage = draggedElement.style.backgroundImage;
+            target.classList.add('filled');
+            draggedElement.remove();
+        }
+    }
+    // どこにもドロップされなければ元に戻る（自動で残る）
+};
+
+const resetDragged = () => {
+    if (draggedElement) {
+        draggedElement.style.position = '';
+        draggedElement.style.left = '';
+        draggedElement.style.top = '';
+        draggedElement.style.zIndex = '';
+        draggedElement.style.transform = '';
+        draggedElement = null;
+    }
+    document.removeEventListener('touchmove', touchMove);
+    document.removeEventListener('touchend', touchEnd);
+};
+
+// 一括判定
+document.getElementById('check-btn').onclick = () => {
+    const slots = document.querySelectorAll('#challenge-slots .slot');
+    const wrongs = [];
+    let allCorrect = true;
+
+    slots.forEach(slot => {
+        const idx = slot.dataset.index;
+        const placedName = slot.classList.contains('filled') ? 
+            zodiac.find(z => z.image === slot.style.backgroundImage.slice(5,-2))?.name : null;
+        if (placedName !== zodiac[idx].name) {
+            allCorrect = false;
+            if (slot.classList.contains('filled')) wrongs.push(slot);
+        }
+    });
+
+    const overlay = document.getElementById('result-overlay');
+    overlay.classList.remove('hidden');
+
+    if (allCorrect) {
+        overlay.textContent = '○';
+        overlay.className = 'correct';
+        setTimeout(() => overlay.classList.add('hidden'), 3000);
     } else {
-        speak('ちがうよ');
+        overlay.textContent = '×';
+        overlay.className = 'wrong';
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            wrongs.forEach(s => {
+                s.classList.add('wrong-flash');
+                setTimeout(() => {
+                    s.classList.remove('filled', 'wrong-flash');
+                    s.style.backgroundImage = '';
+                    // 選択肢に戻す
+                    const img = s.style.backgroundImage;
+                    if (img) {
+                        const opt = document.createElement('div');
+                        opt.className = 'option';
+                        opt.draggable = true;
+                        opt.style.backgroundImage = img;
+                        document.getElementById('challenge-options').appendChild(opt);
+                    }
+                }, 2000);
+            });
+        }, 2000);
     }
 };
 
-const checkComplete = () => {
-    if (document.querySelectorAll('.slot.filled').length === 12) {
-        document.getElementById('feedback').textContent = 'ぜんぶ せいかい！';
-        speak('すごい！ぜんぶ せいかいだよ！');
-    }
-};
-
-// イベント登録
-document.getElementById('learn-btn').onclick = initLearnMode;
-document.getElementById('quiz-btn').onclick = initQuizMode;
-document.getElementById('retry-btn').onclick = initQuizMode;
-document.getElementById('back-home').onclick = () => showScreen('home-screen');
-document.getElementById('back-home-quiz').onclick = () => showScreen('home-screen');
+// イベント
+document.getElementById('slide-btn').onclick = startSlide;
+document.getElementById('challenge-btn').onclick = startChallenge;
+document.getElementById('back-home1').onclick = () => showScreen('home-screen');
+document.getElementById('back-home2').onclick = () => showScreen('home-screen');
