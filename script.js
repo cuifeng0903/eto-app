@@ -9,7 +9,6 @@ const zodiac = [
 
 let current = 0;
 let difficulty = localStorage.getItem('lastDifficulty') || 1;
-let emptySlots = [];
 let draggedElement = null;
 
 // 初期化
@@ -27,7 +26,7 @@ const showScreen = id => {
     document.getElementById(id).classList.remove('hidden');
 };
 
-// スライドモード（自動再生）
+// スライドモード（変更なし）
 const startSlide = () => {
     current = 0;
     showScreen('slide-screen');
@@ -40,7 +39,6 @@ const updateSlide = () => {
     img.style.backgroundImage = `url(${zodiac[current].image})`;
     speak(zodiac[current].name);
 
-    // 進捗
     document.getElementById('progress').innerHTML = zodiac.map((z,i) => 
         `<div class="progress-icon ${i===current?'current':''}" style="background-image:url(${z.image})"></div>`
     ).join('');
@@ -49,18 +47,18 @@ const updateSlide = () => {
     if (current === 0) {
         setTimeout(() => document.getElementById('restart-btn').classList.remove('hidden'), 1500);
     } else {
-        setTimeout(updateSlide, 700 + 800); // 音声時間＋0.7秒
+        setTimeout(updateSlide, 700 + 800);
     }
 };
 
 document.getElementById('restart-btn').onclick = startSlide;
 
-// チャレンジモード
+// チャレンジモード（ドロップ判定を完全改良）
 const startChallenge = () => {
     difficulty = +document.getElementById('difficulty').value;
     localStorage.setItem('lastDifficulty', difficulty);
     const count = difficulty === 4 ? 12 : difficulty * 3;
-    emptySlots = Array.from({length:12},(_,i)=>i).sort(()=>Math.random()-0.5).slice(0,count);
+    const emptyIndices = Array.from({length:12},(_,i)=>i).sort(()=>Math.random()-0.5).slice(0,count);
 
     showScreen('challenge-screen');
     document.getElementById('result-overlay').classList.add('hidden');
@@ -70,94 +68,143 @@ const startChallenge = () => {
     slotsDiv.innerHTML = '';
     optionsDiv.innerHTML = '';
 
+    // スロット作成（全てドロップ可能に）
     zodiac.forEach((z, i) => {
         const slot = document.createElement('div');
         slot.className = 'slot';
         slot.dataset.index = i;
-        if (!emptySlots.includes(i)) {
+        slot.dataset.correct = z.name;
+
+        if (!emptyIndices.includes(i)) {
             slot.style.backgroundImage = `url(${z.image})`;
             slot.classList.add('filled');
         }
+        // 全てのスロットにドロップイベントを設定（空欄以外も移動可能）
+        slot.addEventListener('dragover', e => e.preventDefault());
+        slot.addEventListener('drop', e => handleDrop(e, slot));
         slotsDiv.appendChild(slot);
     });
 
-    [...emptySlots].sort(()=>Math.random()-0.5).forEach(i => {
-        const opt = document.createElement('div');
-        opt.className = 'option';
-        opt.draggable = true;
-        opt.style.backgroundImage = `url(${zodiac[i].image})`;
-        opt.dataset.name = zodiac[i].name;
-        opt.dataset.index = i;
-
-        opt.addEventListener('dragstart', e => {
-            draggedElement = opt;
-            e.dataTransfer.setData('text/plain', '');
-        });
-        opt.addEventListener('touchstart', e => {
-            e.preventDefault();
-            draggedElement = opt;
-            opt.style.position = 'fixed';
-            opt.style.zIndex = 1000;
-            opt.style.transform = 'scale(1.2)';
-            document.addEventListener('touchmove', touchMove);
-            document.addEventListener('touchend', touchEnd);
-        });
-
-        optionsDiv.appendChild(opt);
+    // 選択肢作成
+    [...emptyIndices].sort(()=>Math.random()-0.5).forEach(i => {
+        createOption(zodiac[i]);
     });
 };
 
-const touchMove = e => {
+// 選択肢作成関数
+const createOption = (z) => {
+    const opt = document.createElement('div');
+    opt.className = 'option';
+    opt.draggable = true;
+    opt.style.backgroundImage = `url(${z.image})`;
+    opt.dataset.name = z.name;
+
+    // PC用ドラッグ
+    opt.addEventListener('dragstart', e => {
+        draggedElement = opt;
+        e.dataTransfer.setData('text/plain', '');
+    });
+
+    // タッチ用（判定範囲を大幅に広げる）
+    opt.addEventListener('touchstart', e => {
+        e.preventDefault();
+        draggedElement = opt;
+        opt.classList.add('dragging');
+        document.addEventListener('touchmove', touchMove, { passive: false });
+        document.addEventListener('touchend', touchEnd);
+    });
+
+    document.getElementById('challenge-options').appendChild(opt);
+};
+
+let touchMove = e => {
+    e.preventDefault();
     if (!draggedElement) return;
     const touch = e.touches[0];
-    draggedElement.style.left = (touch.clientX - 50) + 'px';
-    draggedElement.style.top = (touch.clientY - 50) + 'px';
+    draggedElement.style.position = 'fixed';
+    draggedElement.style.left = (touch.clientX - 60) + 'px';
+    draggedElement.style.top = (touch.clientY - 60) + 'px';
+    draggedElement.style.zIndex = 1000;
+    draggedElement.style.transform = 'scale(1.3)';
 };
 
-const touchEnd = e => {
+let touchEnd = () => {
     if (!draggedElement) return;
-    const touch = e.changedTouches[0];
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    dropOnTarget(target);
-    resetDragged();
-};
 
-const dropOnTarget = target => {
-    if (target && target.classList.contains('slot') && !target.classList.contains('filled')) {
-        const correctName = zodiac[target.dataset.index].name;
-        if (draggedElement.dataset.name === correctName) {
-            target.style.backgroundImage = draggedElement.style.backgroundImage;
-            target.classList.add('filled');
-            draggedElement.remove();
+    // 画面上の全てのスロットから最も近いものを探す（判定範囲超広い）
+    const slots = document.querySelectorAll('#challenge-slots .slot');
+    let closestSlot = null;
+    let minDistance = Infinity;
+
+    const rect = draggedElement.getBoundingClientRect();
+    const dragX = rect.left + rect.width / 2;
+    const dragY = rect.top + rect.height / 2;
+
+    slots.forEach(slot => {
+        const sRect = slot.getBoundingClientRect();
+        const sCenterX = sRect.left + sRect.width / 2;
+        const sCenterY = sRect.top + sRect.height / 2;
+        const distance = Math.hypot(dragX - sCenterX, dragY - sCenterY);
+        if (distance < minDistance && distance < 200) { // 200px以内なら認識（超広め！）
+            minDistance = distance;
+            closestSlot = slot;
         }
-    }
-    // どこにもドロップされなければ元に戻る（自動で残る）
-};
+    });
 
-const resetDragged = () => {
-    if (draggedElement) {
-        draggedElement.style.position = '';
-        draggedElement.style.left = '';
-        draggedElement.style.top = '';
-        draggedElement.style.zIndex = '';
-        draggedElement.style.transform = '';
-        draggedElement = null;
+    if (closestSlot) {
+        handleDrop(null, closestSlot);
     }
+
+    // リセット
+    draggedElement.classList.remove('dragging');
+    draggedElement.style.position = '';
+    draggedElement.style.left = '';
+    draggedElement.style.top = '';
+    draggedElement.style.zIndex = '';
+    draggedElement.style.transform = '';
+    draggedElement = null;
     document.removeEventListener('touchmove', touchMove);
     document.removeEventListener('touchend', touchEnd);
 };
 
-// 一括判定
+// ドロップ処理（PC・タッチ共通）
+const handleDrop = (e, slot) => {
+    if (e) e.preventDefault();
+    if (!draggedElement) return;
+
+    const draggedImg = draggedElement.style.backgroundImage;
+    const draggedName = draggedElement.dataset.name;
+
+    // 移動元が選択肢なら削除、配置済みなら元スロットを空にする
+    if (draggedElement.parentElement.id === 'challenge-options') {
+        draggedElement.remove();
+    } else {
+        // 配置済みの画像だった場合は元のスロットを空に
+        const oldSlot = draggedElement.closest('.slot');
+        if (oldSlot) {
+            oldSlot.style.backgroundImage = '';
+            oldSlot.classList.remove('filled');
+        }
+    }
+
+    // 新しいスロットに配置
+    slot.style.backgroundImage = draggedImg;
+    slot.classList.add('filled');
+
+    draggedElement = null;
+};
+
+// 一括判定（変更なし）
 document.getElementById('check-btn').onclick = () => {
     const slots = document.querySelectorAll('#challenge-slots .slot');
     const wrongs = [];
     let allCorrect = true;
 
     slots.forEach(slot => {
-        const idx = slot.dataset.index;
-        const placedName = slot.classList.contains('filled') ? 
-            zodiac.find(z => z.image === slot.style.backgroundImage.slice(5,-2))?.name : null;
-        if (placedName !== zodiac[idx].name) {
+        const idx = +slot.dataset.index;
+        const currentImg = slot.style.backgroundImage;
+        const correctImg = `url("${zodiac[idx].image}")`;
+        if (currentImg !== correctImg || !slot.classList.contains('filled')) {
             allCorrect = false;
             if (slot.classList.contains('filled')) wrongs.push(slot);
         }
@@ -178,16 +225,12 @@ document.getElementById('check-btn').onclick = () => {
             wrongs.forEach(s => {
                 s.classList.add('wrong-flash');
                 setTimeout(() => {
-                    s.classList.remove('filled', 'wrong-flash');
-                    s.style.backgroundImage = '';
-                    // 選択肢に戻す
                     const img = s.style.backgroundImage;
+                    s.style.backgroundImage = '';
+                    s.classList.remove('filled', 'wrong-flash');
                     if (img) {
-                        const opt = document.createElement('div');
-                        opt.className = 'option';
-                        opt.draggable = true;
-                        opt.style.backgroundImage = img;
-                        document.getElementById('challenge-options').appendChild(opt);
+                        const z = zodiac.find(item => item.image === img.slice(5, -2));
+                        if (z) createOption(z);
                     }
                 }, 2000);
             });
