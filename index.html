@@ -14,43 +14,41 @@
     <!-- ホーム画面 -->
     <div id="home-screen">
         <h1>えとを おぼえよう！</h1>
-        <button id="learn-btn">まなぶモード</button>
-        <button id="quiz-btn">かくにんモード</button>
+        <button id="slide-btn" class="mode-btn slide">スライド</button>
+        <button id="challenge-btn" class="mode-btn challenge">チャレンジ</button>
         <select id="difficulty">
-            <option value="1">かんたん (3つ)</option>
-            <option value="2">ふつう (6つ)</option>
-            <option value="3">むずかしい (9つ)</option>
-            <option value="4">ぜんぶ (12つ)</option>
+            <option value="1">Level 1（3つ）</option>
+            <option value="2">Level 2（6つ）</option>
+            <option value="3">Level 3（9つ）</option>
+            <option value="4">Level 4（12つ）</option>
         </select>
     </div>
 
-    <!-- 学習モード -->
-    <div id="learn-screen" class="hidden">
-        <div id="learn-image"></div>
-        <div class="buttons">
-            <button id="prev-btn">まえ</button>
-            <button id="speak-btn">よむ</button>
-            <button id="next-btn">つぎ</button>
-        </div>
+    <!-- スライドモード（自動再生） -->
+    <div id="slide-screen" class="hidden">
+        <div id="slide-image"></div>
         <div id="progress"></div>
-        <button id="back-home">ホームにもどる</button>
+        <button id="restart-btn" class="big-btn">もういちど</button>
+        <button id="back-home1" class="small-btn">ホームにもどる</button>
     </div>
 
-    <!-- 確認モード（横スクロール対応） -->
-    <div id="quiz-screen" class="hidden">
-        <h2>すきな ばしょに えとを いれてね！</h2>
+    <!-- チャレンジモード -->
+    <div id="challenge-screen" class="hidden">
+        <h2>えとをじゅんばんにならべよう！</h2>
         
+        <!-- 並べる場所（横スクロール） -->
         <div class="scroll-container">
-            <div id="quiz-slots"></div>
-        </div>
-        
-        <div class="scroll-container">
-            <div id="quiz-options"></div>
+            <div id="challenge-slots"></div>
         </div>
 
-        <div id="feedback"></div>
-        <button id="retry-btn">もういちど</button>
-        <button id="back-home-quiz">ホームにもどる</button>
+        <!-- 選択肢（折り返し表示） -->
+        <div id="options-wrapper">
+            <div id="challenge-options"></div>
+        </div>
+
+        <button id="check-btn" class="big-btn challenge">かくにん！</button>
+        <div id="result-overlay" class="hidden"></div>
+        <button id="back-home2" class="small-btn">ホームにもどる</button>
     </div>
 
     <script src="script.js"></script>
