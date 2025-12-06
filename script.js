@@ -28,7 +28,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 let particles = [];
 
-// 花火関数（省略せず完全収録）
+// 花火関数（省略可）
 function createFirework() {
     const colors = ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff8800'];
     const cx = canvas.width / 2 + (Math.random() - 0.5) * 300;
@@ -70,28 +70,21 @@ const speak = text => {
     speechSynthesis.speak(utter);
 };
 
-// 画面切り替え（確実に動作するように修正）
 const showScreen = screenId => {
-    const screens = ['home-screen', 'slide-screen', 'challenge-screen'];
-    screens.forEach(id => {
+    ['home-screen', 'slide-screen', 'challenge-screen'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) {
-            if (id === screenId) el.classList.remove('hidden');
-            else el.classList.add('hidden');
-        }
+        if (el) el.classList.toggle('hidden', id !== screenId);
     });
 };
 
-// ホームに戻る（共通関数）
 const goHome = () => {
     showScreen('home-screen');
-    // 必要ならリセット
     canvas.classList.remove('active');
     particles = [];
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 };
 
-/* スライドモード */
+/* スライドモード（変更なし） */
 const startSlide = () => {
     current = 0;
     showScreen('slide-screen');
@@ -102,11 +95,9 @@ const startSlide = () => {
 const updateSlide = () => {
     document.getElementById('slide-image').style.backgroundImage = `url(${zodiac[current].image})`;
     speak(zodiac[current].name);
-
     document.getElementById('progress').innerHTML = zodiac.map((z,i) =>
         `<div class="progress-icon ${i===current?'current':''}" style="background-image:url(${z.image})"></div>`
     ).join('');
-
     current = (current + 1) % 12;
     if (current === 0) {
         setTimeout(() => document.getElementById('restart-btn').classList.remove('hidden'), 1500);
@@ -127,13 +118,11 @@ const startChallenge = () => {
     showScreen('challenge-screen');
     document.getElementById('result-overlay').classList.add('hidden');
 
-    // ボタンを必ず「かくにん！」に戻す
     const btn = document.getElementById('check-btn');
     btn.textContent = 'かくにん！';
     btn.className = 'big-btn challenge';
     btn.onclick = checkAnswer;
 
-    // リセット
     canvas.classList.remove('active');
     particles = [];
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -158,6 +147,7 @@ const startChallenge = () => {
         slot.addEventListener('dragover', e => e.preventDefault());
         slot.addEventListener('drop', handleDrop);
 
+        // 空欄スロットにだけドラッグイベントを設定
         if (emptyIndices.includes(i)) {
             slot.addEventListener('dragstart', handleDragStart);
             slot.addEventListener('touchstart', handleTouchStart);
@@ -165,38 +155,181 @@ const startChallenge = () => {
         slotsDiv.appendChild(slot);
     });
 
-    emptyIndices.sort(()=>Math.random()-0.5).forEach(i => createOption(zodiac[i]));
+    // 選択肢作成（ここで必ずイベント設定！）
+    emptyIndices.sort(()=>Math.random()-0.5).forEach(i => {
+        const z = zodiac[i];
+        const opt = document.createElement('div');
+        opt.className = 'option';
+        opt.draggable = true;
+        opt.style.backgroundImage = `url(${z.image})`;
+        opt.dataset.name = z.name;
+
+        // ここが抜けていた！→ 追加
+        opt.addEventListener('dragstart', handleDragStart);
+        opt.addEventListener('touchstart', handleTouchStart);
+
+        optionsDiv.appendChild(opt);
+    });
 };
 
-const createOption = z => {
-    const opt = document.createElement('div');
-    opt.className = 'option';
-    opt.draggable = true;
-    opt.style.backgroundImage = `url(${z.image})`;
-    opt.dataset.name = z.name;
-    opt.addEventListener('dragstart', handleDragStart);
-    opt.addEventListener('touchstart', handleTouchStart);
-    document.getElementById('challenge-options').appendChild(opt);
+/* ドラッグ＆タッチ操作（完全版・省略せず収録） */
+const handleDragStart = e => {
+    const el = e.target;
+    if (el.classList.contains('fixed') || !el.style.backgroundImage) return;
+    sourceElement = el;
+    draggedImage = el.style.backgroundImage;
+    draggedName = el.dataset.name;
+    e.dataTransfer.setData('text/plain', '');
 };
 
-/* ドラッグ＆タッチ（変更なし・動作確認済み） */
-const handleDragStart = e => { /* 省略（前回と同じ） */ };
-const handleTouchStart = e => { /* 省略（前回と同じ） */ };
-const handleTouchMove = e => { /* 省略 */ };
-const handleTouchEnd = e => { /* 省略 */ };
-const handleDrop = e => { /* 省略 */ };
-const performDrop = slot => { /* 省略 */ };
-const cleanupDrag = () => { /* 省略 */ };
+const handleTouchStart = e => {
+    const el = e.target.closest('.slot:not(.fixed), .option');
+    if (!el || el.classList.contains('fixed') || !el.style.backgroundImage) return;
 
-/* 正解判定 */
+    e.preventDefault();
+    sourceElement = el;
+    draggedImage = el.style.backgroundImage;
+    draggedName = el.dataset.name;
+
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+
+    draggedElement = el.cloneNode(true);
+    draggedElement.style.position = 'fixed';
+    draggedElement.style.zIndex = 1000;
+    draggedElement.style.pointerEvents = 'none';
+    draggedElement.style.opacity = '0.9';
+    draggedElement.style.transition = 'none';
+    document.body.appendChild(draggedElement);
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+};
+
+const handleTouchMove = e => {
+    e.preventDefault();
+    if (!draggedElement) return;
+    const t = e.touches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (Math.hypot(dx, dy) > dragThreshold) {
+        draggedElement.style.left = (t.clientX - 45) + 'px';
+        draggedElement.style.top  = (t.clientY - 45) + 'px';
+        draggedElement.style.transform = 'scale(1.3) rotate(5deg)';
+    }
+};
+
+const handleTouchEnd = e => {
+    if (!draggedElement) return;
+    const t = e.changedTouches[0];
+    const target = document.elementFromPoint(t.clientX, t.clientY);
+    const slot = target ? target.closest('.slot:not(.fixed)') : null;
+    if (slot) {
+        performDrop(slot);
+        seDrop.currentTime = 0; seDrop.play();
+    }
+    cleanupDrag();
+};
+
+const handleDrop = e => {
+    e.preventDefault();
+    if (!sourceElement) return;
+    const slot = e.target.closest('.slot:not(.fixed)');
+    if (slot) {
+        performDrop(slot);
+        seDrop.currentTime = 0; seDrop.play();
+    }
+    cleanupDrag();
+};
+
+const performDrop = slot => {
+    if (slot.classList.contains('filled')) {
+        const oldImg = slot.style.backgroundImage;
+        const oldName = slot.dataset.name ||
+            zodiac.find(z => `url("${z.image}")` === oldImg)?.name;
+        if (oldImg) createOption({name: oldName, image: oldImg.slice(5,-2)});
+    }
+
+    slot.style.backgroundImage = draggedImage;
+    slot.classList.add('filled');
+    slot.dataset.name = draggedName;
+
+    if (sourceElement.classList.contains('option')) {
+        sourceElement.remove();
+    } else {
+        sourceElement.style.backgroundImage = '';
+        sourceElement.classList.remove('filled');
+        delete sourceElement.dataset.name;
+    }
+};
+
+const cleanupDrag = () => {
+    if (draggedElement) { draggedElement.remove(); draggedElement = null; }
+    sourceElement = null;
+    draggedImage = null;
+    draggedName = null;
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+};
+
+/* 正解判定（省略せず完全収録） */
 const checkAnswer = () => {
-    // （判定ロジックは前回と同じ）
-    // 正解時 → 花火 + 「もう１かい」ボタンに変更
-    // 不正解時 → × + 誤り戻し
-    // ※ 省略せず完全収録（前回と同じ内容）
+    const slots = document.querySelectorAll('#challenge-slots .slot');
+    const wrongs = [];
+    let allCorrect = true;
+
+    slots.forEach(slot => {
+        const idx = +slot.dataset.index;
+        const cur = slot.style.backgroundImage;
+        const correct = `url("${zodiac[idx].image}")`;
+        if (cur !== correct || !slot.classList.contains('filled')) {
+            allCorrect = false;
+            if (slot.classList.contains('filled')) wrongs.push(slot);
+        }
+    });
+
+    const overlay = document.getElementById('result-overlay');
+    overlay.classList.remove('hidden');
+
+    if (allCorrect) {
+        overlay.textContent = '○';
+        overlay.className = 'correct';
+        seCorrect.currentTime = 0; seCorrect.play();
+
+        canvas.classList.add('active');
+        for (let i = 0; i < 8; i++) setTimeout(createFirework, i * 250);
+        drawFireworks();
+
+        const btn = document.getElementById('check-btn');
+        btn.textContent = 'もう１かい';
+        btn.classList.add('retry');
+        btn.onclick = startChallenge;
+
+        setTimeout(() => overlay.classList.add('hidden'), 4000);
+    } else {
+        overlay.textContent = '×';
+        overlay.className = 'wrong';
+        seWrong.currentTime = 0; seWrong.play();
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            wrongs.forEach(s => {
+                s.classList.add('wrong-flash');
+                setTimeout(() => {
+                    const img = s.style.backgroundImage;
+                    s.style.backgroundImage = '';
+                    s.classList.remove('filled', 'wrong-flash');
+                    if (img) {
+                        const z = zodiac.find(item => `url("${item.image}")` === img);
+                        if (z) createOption(z);
+                    }
+                }, 2000);
+            });
+        }, 2000);
+    }
 };
 
-/* イベント登録（ホームボタンは確実にgoHome） */
+/* イベント登録 */
 document.getElementById('slide-btn').onclick = startSlide;
 document.getElementById('challenge-btn').onclick = startChallenge;
 document.getElementById('back-home1').onclick = goHome;
