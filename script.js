@@ -9,12 +9,66 @@ const zodiac = [
 
 let current = 0;
 let difficulty = localStorage.getItem('lastDifficulty') || 1;
-let draggedElement = null; // 現在ドラッグ中のクローン
-let sourceElement = null;  // 元の要素（スロット or オプション）
+let draggedElement = null;
+let sourceElement = null;
 let draggedImage = null;
 let draggedName = null;
 let startX, startY;
 const dragThreshold = 10;
+
+// 効果音
+const seCorrect = document.getElementById('se-correct');
+const seWrong = document.getElementById('se-wrong');
+const seDrop = document.getElementById('se-drop');
+
+// 花火キャンバス
+const canvas = document.getElementById('fireworks');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let particles = [];
+
+function createFirework() {
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    const centerX = canvas.width / 2 + (Math.random() - 0.5) * 200;
+    const centerY = canvas.height / 2 + (Math.random() - 0.5) * 200;
+    
+    for (let i = 0; i < 80; i++) {
+        const angle = (Math.PI * 2 * i) / 80;
+        const velocity = 3 + Math.random() * 6;
+        particles.push({
+            x: centerX,
+            y: centerY,
+            vx: Math.cos(angle) * velocity,
+            vy: Math.sin(angle) * velocity,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            life: 100,
+            size: 4 + Math.random() * 4
+        });
+    }
+}
+
+function drawFireworks() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach((p, i) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.1;
+        p.life--;
+        p.size *= 0.98;
+
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life / 100;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (p.life <= 0) particles.splice(i, 1);
+    });
+
+    if (particles.length > 0) requestAnimationFrame(drawFireworks);
+}
 
 // 初期化
 document.getElementById('difficulty').value = difficulty;
@@ -67,6 +121,10 @@ const startChallenge = () => {
 
     showScreen('challenge-screen');
     document.getElementById('result-overlay').classList.add('hidden');
+    document.getElementById('check-btn').textContent = 'かくにん！';
+    document.getElementById('check-btn').classList.remove('retry');
+    canvas.classList.remove('active');
+    particles = [];
 
     const slotsDiv = document.getElementById('challenge-slots');
     const optionsDiv = document.getElementById('challenge-options');
@@ -114,7 +172,6 @@ const createOption = (z) => {
     document.getElementById('challenge-options').appendChild(opt);
 };
 
-// ドラッグ開始（PC）
 const handleDragStart = e => {
     const elem = e.target;
     if (elem.classList.contains('fixed') || !elem.style.backgroundImage) return;
@@ -123,11 +180,9 @@ const handleDragStart = e => {
     draggedImage = elem.style.backgroundImage;
     draggedName = elem.dataset.name;
 
-    // 見た目は残す（クローンで移動）
     e.dataTransfer.setData('text/plain', '');
 };
 
-// タッチ開始（最も重要な修正）
 const handleTouchStart = e => {
     const elem = e.target.closest('.slot:not(.fixed), .option');
     if (!elem || elem.classList.contains('fixed') || !elem.style.backgroundImage) return;
@@ -140,7 +195,6 @@ const handleTouchStart = e => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
 
-    // クローン作成（指の下に表示）
     draggedElement = elem.cloneNode(true);
     draggedElement.style.position = 'fixed';
     draggedElement.style.zIndex = 1000;
@@ -177,8 +231,9 @@ const handleTouchEnd = e => {
 
     if (targetSlot) {
         performDrop(targetSlot);
+        seDrop.currentTime = 0;
+        seDrop.play();
     } else {
-        // ドロップ失敗 → 元に戻す
         cancelDrag();
     }
 
@@ -192,15 +247,15 @@ const handleDrop = e => {
     const slot = e.target.closest('.slot:not(.fixed)');
     if (slot) {
         performDrop(slot);
+        seDrop.currentTime = 0;
+        seDrop.play();
     } else {
         cancelDrag();
     }
     cleanupDrag();
 };
 
-// ドロップ実行
 const performDrop = (slot) => {
-    // 置き換え処理
     if (slot.classList.contains('filled')) {
         const oldImg = slot.style.backgroundImage;
         const oldName = slot.dataset.name || zodiac.find(z => `url("${z.image}")` === oldImg)?.name;
@@ -213,7 +268,6 @@ const performDrop = (slot) => {
     slot.classList.add('filled');
     slot.dataset.name = draggedName;
 
-    // 元の場所を空にする
     if (sourceElement.classList.contains('option')) {
         sourceElement.remove();
     } else {
@@ -223,12 +277,8 @@ const performDrop = (slot) => {
     }
 };
 
-// ドラッグキャンセル
-const cancelDrag = () => {
-    // 何もしない（元々あった場所に残る）
-};
+const cancelDrag = () => { };
 
-// ドラッグ終了処理
 const cleanupDrag = () => {
     if (draggedElement) {
         draggedElement.remove();
@@ -241,7 +291,7 @@ const cleanupDrag = () => {
     document.removeEventListener('touchend', handleTouchEnd);
 };
 
-// 一括判定（変更なし）
+// 一括判定
 document.getElementById('check-btn').onclick = () => {
     const slots = document.querySelectorAll('#challenge-slots .slot');
     const wrongs = [];
@@ -263,10 +313,25 @@ document.getElementById('check-btn').onclick = () => {
     if (allCorrect) {
         overlay.textContent = '○';
         overlay.className = 'correct';
-        setTimeout(() => overlay.classList.add('hidden'), 3000);
+        seCorrect.currentTime = 0;
+        seCorrect.play();
+        canvas.classList.add('active');
+        for (let i = 0; i < 6; i++) setTimeout(createFirework, i * 300);
+        drawFireworks();
+
+        // ボタンを「もう１かい」に変更
+        const btn = document.getElementById('check-btn');
+        btn.textContent = 'もう１かい';
+        btn.classList.add('retry');
+        btn.onclick = startChallenge; // 再挑戦
+
+        setTimeout(() => overlay.classList.add('hidden'), 4000);
     } else {
         overlay.textContent = '×';
         overlay.className = 'wrong';
+        seWrong.currentTime = 0;
+        seWrong.play();
+
         setTimeout(() => {
             overlay.classList.add('hidden');
             wrongs.forEach(s => {
