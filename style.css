@@ -94,3 +94,21 @@ button { border: none; border-radius: 20px; padding: 18px; font-size: 6.5vw; cur
     0%,100% { box-shadow: 0 0 20px #e74c3c; }
     50% { box-shadow: 0 0 40px #ff0000; }
 }
+/* 花火キャンバス */
+#fireworks {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 998; opacity: 0;
+    transition: opacity 0.5s;
+}
+#fireworks.active { opacity: 1; }
+
+/* もう１かいボタン */
+#check-btn.retry {
+    background: #f39c12 !important;
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
