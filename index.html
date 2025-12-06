@@ -17,14 +17,14 @@
         <button id="slide-btn" class="mode-btn slide">スライド</button>
         <button id="challenge-btn" class="mode-btn challenge">チャレンジ</button>
         <select id="difficulty">
-            <option value="1">Level 1（3つ）</option>
-            <option value="2">Level 2（6つ）</option>
-            <option value="3">Level 3（9つ）</option>
-            <option value="4">Level 4（12つ）</option>
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+            <option value="4">Level 4</option>
         </select>
     </div>
 
-    <!-- スライドモード（自動再生） -->
+    <!-- スライドモード -->
     <div id="slide-screen" class="hidden">
         <div id="slide-image"></div>
         <div id="progress"></div>
@@ -36,20 +36,24 @@
     <div id="challenge-screen" class="hidden">
         <h2>えとをじゅんばんにならべよう！</h2>
         
-        <!-- 並べる場所（横スクロール） -->
         <div class="scroll-container">
             <div id="challenge-slots"></div>
         </div>
 
-        <!-- 選択肢（折り返し表示） -->
         <div id="options-wrapper">
             <div id="challenge-options"></div>
         </div>
 
         <button id="check-btn" class="big-btn challenge">かくにん！</button>
         <div id="result-overlay" class="hidden"></div>
+        <canvas id="fireworks"></canvas>
         <button id="back-home2" class="small-btn">ホームにもどる</button>
     </div>
+
+    <!-- 効果音 -->
+    <audio id="se-correct" src="https://cdn.jsdelivr.net/gh/marmooo/eto-app@master/se/correct.mp3" preload="auto"></audio>
+    <audio id="se-wrong" src="https://cdn.jsdelivr.net/gh/marmooo/eto-app@master/se/wrong.mp3" preload="auto"></audio>
+    <audio id="se-drop" src="https://cdn.jsdelivr.net/gh/marmooo/eto-app@master/se/drop.mp3" preload="auto"></audio>
 
     <script src="script.js"></script>
     <script>
