@@ -116,7 +116,7 @@ const startChallenge = () => {
     const btn = document.getElementById('check-btn');
     btn.textContent = 'かくにん！';
     btn.classList.remove('retry');
-    btn.onclick = checkAnswer; // 常に判定関数を再設定
+    btn.onclick = checkAnswer; // 常に判定関数を設定
 
     canvas.classList.remove('active');
     particles = [];
@@ -256,7 +256,7 @@ const createOption = ({ name, image }) => {
     document.getElementById('challenge-options').appendChild(opt);
 };
 
-// 正誤判定（再挑戦時も判定維持）
+// 正誤判定（正答時も判定機能維持）
 const checkAnswer = () => {
     const slots = document.querySelectorAll('#challenge-slots .slot');
     const wrongs = [];
@@ -288,11 +288,10 @@ const checkAnswer = () => {
 
         btn.textContent = 'もう１かい';
         btn.classList.add('retry');
-        // onclickは判定のまま！再挑戦はstartChallenge内で処理
-        btn.onclick = () => {
-            startChallenge();
-            // 再挑戦後、ボタンをかくにん！に戻す（startChallenge内で実施）
-        };
+        // onclickを判定のまま維持、再挑戦は正答時のみ自動実行
+        btn.onclick = checkAnswer; // 常に判定
+        // 正答時のみ再挑戦を実行（判定後に自動）
+        setTimeout(() => startChallenge(), 4000); // 花火終了後自動再挑戦
 
         setTimeout(() => overlay.classList.add('hidden'), 4000);
     } else {
@@ -317,6 +316,6 @@ const checkAnswer = () => {
             });
         }, 2000);
     }
-    // 常に判定関数を再設定
+    // ボタンを常に判定に固定
     btn.onclick = checkAnswer;
 };
