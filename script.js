@@ -256,7 +256,7 @@ const createOption = ({ name, image }) => {
     document.getElementById('challenge-options').appendChild(opt);
 };
 
-// 正誤判定（自動再挑戦削除 + ボタンクリック時のみ再挑戦）
+// 正誤判定（自動再挑戦削除 + 誤答重複解消）
 const checkAnswer = () => {
     const slots = document.querySelectorAll('#challenge-slots .slot');
     const wrongs = [];
@@ -288,8 +288,9 @@ const checkAnswer = () => {
 
         btn.textContent = 'もう１かい';
         btn.classList.add('retry');
-        // クリック時のみ再挑戦（自動なし）
-        btn.onclick = () => startChallenge();
+        btn.onclick = () => {
+            startChallenge(); // クリック時のみ再挑戦
+        };
 
         setTimeout(() => overlay.classList.add('hidden'), 4000);
     } else {
@@ -301,9 +302,6 @@ const checkAnswer = () => {
 
         setTimeout(() => {
             overlay.classList.add('hidden');
-            // 重複解消: 選択領域クリア後、誤り画像のみ再追加
-            const optionsDiv = document.getElementById('challenge-options');
-            optionsDiv.innerHTML = '';
             wrongs.forEach(slot => {
                 slot.classList.add('wrong-flash');
                 const img = slot.style.backgroundImage;
@@ -317,4 +315,6 @@ const checkAnswer = () => {
             });
         }, 2000);
     }
+    // 常に判定関数を維持
+    btn.onclick = checkAnswer;
 };
