@@ -11,6 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
 </head>
 <body>
+    <!-- ホーム画面 -->
     <div id="home-screen">
         <h1>えとを おぼえよう！</h1>
         <button id="slide-btn" class="mode-btn slide">スライド</button>
@@ -25,6 +26,7 @@
         </div>
     </div>
 
+    <!-- スライドモード -->
     <div id="slide-screen" class="hidden">
         <div id="slide-image"></div>
         <div id="progress"></div>
@@ -32,6 +34,7 @@
         <button id="back-home1" class="small-btn">ホームにもどる</button>
     </div>
 
+    <!-- チャレンジモード -->
     <div id="challenge-screen" class="hidden">
         <h2>えとをじゅんばんにならべよう！</h2>
         <div class="scroll-container" id="scroll-container">
@@ -40,12 +43,19 @@
         <div id="options-wrapper">
             <div id="challenge-options"></div>
         </div>
-        <button id="check-btn" class="big-btn challenge">かくにん！</button>
+
+        <!-- ボタンエリア -->
+        <div id="button-area">
+            <button id="check-btn" class="big-btn challenge">かくにん！</button>
+            <button id="retry-btn" class="big-btn retry hidden">もう１かい</button>
+        </div>
+
         <div id="result-overlay" class="hidden"></div>
         <canvas id="fireworks"></canvas>
         <button id="back-home2" class="small-btn">ホームにもどる</button>
     </div>
 
+    <!-- 効果音 -->
     <audio id="se-correct" preload="auto"></audio>
     <audio id="se-wrong" preload="auto"></audio>
     <audio id="se-drop" preload="auto"></audio>
@@ -53,13 +63,8 @@
     <script src="script.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.error('SW登録失敗:', err));
+            navigator.serviceWorker.register('./sw.js');
         }
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-        });
     </script>
 </body>
 </html>
