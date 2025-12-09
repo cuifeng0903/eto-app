@@ -54,12 +54,13 @@ function drawFireworks() {
 // 初期化
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('difficulty').value = difficulty;
-    document.getElementById('slide-btn').addEventListener('click', startSlide);
-    document.getElementById('challenge-btn').addEventListener('click', startChallenge);
-    document.getElementById('back-home1').addEventListener('click', goHome);
-    document.getElementById('back-home2').addEventListener('click', goHome);
-    document.getElementById('restart-btn').addEventListener('click', startSlide);
-    document.getElementById('check-btn').addEventListener('click', checkAnswer);
+    document.getElementById('slide-btn').onclick = startSlide;
+    document.getElementById('challenge-btn').onclick = startChallenge;
+    document.getElementById('back-home1').onclick = goHome;
+    document.getElementById('back-home2').onclick = goHome;
+    document.getElementById('restart-btn').onclick = startSlide;
+    document.getElementById('check-btn').onclick = checkAnswer;
+    document.getElementById('retry-btn').onclick = startChallenge;
 });
 
 const speak = text => {
@@ -69,7 +70,8 @@ const speak = text => {
 };
 
 const showScreen = id => {
-    document.querySelectorAll('#home-screen, #slide-screen, #challenge-screen').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('#home-screen, #slide-screen, #challenge-screen')
+        .forEach(el => el.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
 };
 
@@ -80,7 +82,7 @@ const goHome = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 };
 
-// スライドモード
+// スライドモード（変更なし）
 const startSlide = () => {
     currentIndex = 0;
     showScreen('slide-screen');
@@ -93,7 +95,9 @@ const updateSlide = () => {
     speak(zodiac[currentIndex].name);
 
     const progress = document.getElementById('progress');
-    progress.innerHTML = zodiac.map((z, i) => `<div class="progress-icon ${i === currentIndex ? 'current' : ''}" style="background-image:url(${z.image})"></div>`).join('');
+    progress.innerHTML = zodiac.map((z, i) => 
+        `<div class="progress-icon ${i === currentIndex ? 'current' : ''}" style="background-image:url(${z.image})"></div>`
+    ).join('');
 
     currentIndex = (currentIndex + 1) % 12;
     if (currentIndex === 0) {
@@ -113,10 +117,9 @@ const startChallenge = () => {
     showScreen('challenge-screen');
     document.getElementById('result-overlay').classList.add('hidden');
 
-    const btn = document.getElementById('check-btn');
-    btn.textContent = 'かくにん！';
-    btn.classList.remove('retry');
-    btn.onclick = checkAnswer;
+    // ボタン初期化
+    document.getElementById('check-btn').classList.remove('hidden');
+    document.getElementById('retry-btn').classList.add('hidden');
 
     canvas.classList.remove('active');
     particles = [];
@@ -148,12 +151,10 @@ const startChallenge = () => {
 
     const optionsDiv = document.getElementById('challenge-options');
     optionsDiv.innerHTML = '';
-    [...emptySlots].sort(() => Math.random() - 0.5).forEach(i => {
-        createOption(zodiac[i]);
-    });
+    [...emptySlots].sort(() => Math.random() - 0.5).forEach(i => createOption(zodiac[i]));
 };
 
-// ドラッグ/タッチ（変更なし）
+// ドラッグ＆タッチ（変更なし）
 const handleDragStart = e => {
     const el = e.target;
     if (el.classList.contains('fixed') || !el.style.backgroundImage) return;
@@ -246,6 +247,10 @@ const cleanupDrag = () => {
 };
 
 const createOption = ({ name, image }) => {
+    const optionsDiv = document.getElementById('challenge-options');
+    // 重複チェック（dataset.nameで判定）
+    if (optionsDiv.querySelector(`[data-name="${name}"]`)) return;
+
     const opt = document.createElement('div');
     opt.className = 'option';
     opt.draggable = true;
@@ -253,10 +258,10 @@ const createOption = ({ name, image }) => {
     opt.dataset.name = name;
     opt.addEventListener('dragstart', handleDragStart);
     opt.addEventListener('touchstart', handleTouchStart);
-    document.getElementById('challenge-options').appendChild(opt);
+    optionsDiv.appendChild(opt);
 };
 
-// 正誤判定（自動再挑戦削除 + 誤答重複解消）
+// 正誤判定（ボタン完全分離 + 重複防止）
 const checkAnswer = () => {
     const slots = document.querySelectorAll('#challenge-slots .slot');
     const wrongs = [];
@@ -274,7 +279,6 @@ const checkAnswer = () => {
 
     const overlay = document.getElementById('result-overlay');
     overlay.classList.remove('hidden');
-    const btn = document.getElementById('check-btn');
 
     if (allCorrect) {
         overlay.textContent = '○';
@@ -286,11 +290,9 @@ const checkAnswer = () => {
         for (let i = 0; i < 8; i++) setTimeout(createFirework, i * 250);
         drawFireworks();
 
-        btn.textContent = 'もう１かい';
-        btn.classList.add('retry');
-        btn.onclick = () => {
-            startChallenge(); // クリック時のみ再挑戦
-        };
+        // ボタン切り替え
+        document.getElementById('check-btn').classList.add('hidden');
+        document.getElementById('retry-btn').classList.remove('hidden');
 
         setTimeout(() => overlay.classList.add('hidden'), 4000);
     } else {
@@ -315,6 +317,4 @@ const checkAnswer = () => {
             });
         }, 2000);
     }
-    // 常に判定関数を維持
-    btn.onclick = checkAnswer;
 };
