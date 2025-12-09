@@ -12,7 +12,7 @@ body {
     padding: 20px;
     font-size: 5.5vw;
     overflow-x: hidden;
-    touch-action: manipulation; /* スムーズなタッチ操作 */
+    touch-action: manipulation;
 }
 
 h1 { 
@@ -79,8 +79,8 @@ button:active {
     width: 100%;
     border-radius: 20px;
     text-align: center;
-    text-align-last: center;        /* iOS Safari対応 */
-    -moz-text-align-last: center;   /* Firefox対応 */
+    text-align-last: center;
+    -moz-text-align-last: center;
     appearance: none;
     -webkit-appearance: none;
 }
@@ -197,24 +197,43 @@ button:active {
     transform: scale(0.9); 
 }
 
-.big-btn { 
-    background: #e17055; 
-    color: white; 
-    font-size: 8vw; 
-    padding: 25px; 
-    width: 80%; 
-    margin: 30px auto; 
-    box-shadow: 0 10px #c0392b; 
+/* ボタンエリア */
+#button-area {
+    margin: 30px auto;
+    width: 80%;
+    max-width: 360px;
+}
+
+.big-btn {
+    background: #e17055;
+    color: white;
+    font-size: 8vw;
+    padding: 25px;
+    width: 100%;
+    margin: 10px 0;
+    box-shadow: 0 10px #c0392b;
+    border-radius: 20px;
+    position: relative;
 }
 
 .big-btn.retry {
     background: #f39c12 !important;
+    box-shadow: 0 10px #e67e22 !important;
     animation: pulse 1.5s infinite;
+}
+
+.big-btn.retry::after {
+    content: " ★";
+    font-size: 7vw;
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 @keyframes pulse {
     0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+    50% { transform: scale(1.08); }
     100% { transform: scale(1); }
 }
 
@@ -224,6 +243,7 @@ button:active {
     padding: 15px 30px; 
     margin: 20px; 
     border-radius: 15px; 
+    font-size: 5.5vw;
 }
 
 /* 正解・不正解オーバーレイ */
@@ -296,4 +316,13 @@ button:active {
     #slide-image { height: 65vh; }
     h1 { font-size: 7vw; }
     h2 { font-size: 6vw; }
+    .big-btn { font-size: 6vw; }
+    .small-btn { font-size: 4.5vw; }
+}
+
+/* iPhone対応 */
+@media (max-width: 414px) {
+    body { font-size: 6vw; }
+    .big-btn { font-size: 9vw; }
+    .mode-btn { font-size: 8vw; }
 }
